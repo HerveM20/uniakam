@@ -5,34 +5,30 @@ namespace App\Livewire\Auth;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Validate;
 use Livewire\Component;
 
-#[Layout('components.layouts.auth')]
 class Login extends Component
 {
-    #[Validate('required|string|email')]
     public string $email = '';
-
-    #[Validate('required|string')]
     public string $password = '';
-
     public bool $remember = false;
 
     /**
-     * Handle an incoming authentication request.
+     * Gère la soumission du formulaire de connexion.
      */
     public function login(): void
     {
-        $this->validate();
+        // La validation est maintenant groupée ici, comme dans votre composant Register.
+        $credentials = $this->validate([
+            'email' => ['required', 'string', 'email'],
+            'password' => ['required', 'string'],
+        ]);
 
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+        if (! Auth::attempt($credentials, $this->remember)) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
@@ -41,13 +37,14 @@ class Login extends Component
         }
 
         RateLimiter::clear($this->throttleKey());
-        Session::regenerate();
+        
+        session()->regenerate();
 
-        $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+        $this->redirect(route('dashboard', absolute: false), navigate: true);
     }
 
     /**
-     * Ensure the authentication request is not rate limited.
+     * S'assure que la requête n'est pas limitée en raison de tentatives excessives.
      */
     protected function ensureIsNotRateLimited(): void
     {
@@ -68,10 +65,20 @@ class Login extends Component
     }
 
     /**
-     * Get the authentication rate limiting throttle key.
+     * Génère la clé de limitation de tentatives.
      */
     protected function throttleKey(): string
     {
         return Str::transliterate(Str::lower($this->email).'|'.request()->ip());
+    }
+
+    /**
+     * Affiche la vue du composant.
+     */
+    public function render()
+    {
+        // On supprime l'attribut #[Layout] et on le définit ici pour plus de clarté.
+        return view('livewire.auth.login')
+            ->layout('components.layouts.auth');
     }
 }
